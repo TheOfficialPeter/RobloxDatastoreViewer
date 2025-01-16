@@ -29,7 +29,8 @@ A cross-platform desktop application built with .NET MAUI and Blazor that allows
 
 To use the application, you'll need:
 1. Your Roblox username
-2. A valid Roblox API key with datastore permissions
+2. A public place with a datastore linked to it.
+3. A valid Roblox API key with datastore permissions
 
 ## Usage
 
