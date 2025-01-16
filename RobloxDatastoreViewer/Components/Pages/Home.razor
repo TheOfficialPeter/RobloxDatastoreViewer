@@ -1,0 +1,306 @@
+﻿@page "/"
+
+<h1></h1>
+
+@if (datastoreId == null)
+{
+	<h1>Overview</h1>
+	<hr/>
+	<div class="alert alert-primary" role="alert">
+		Please connect a datastore in the settings first!
+	</div>
+}
+else
+{
+	<h1>Overview</h1>
+	<hr/>
+	<h5>Query</h5>
+	<hr width="50px" />
+
+	<div class="inputGroup">
+		<input type="text" class="mb-2 form-control" placeholder="Search Datastore Key" @bind="searchValue" />
+		<input type="number" class="mb-2 form-control" placeholder="Resulst Fetch Amount" @bind="amount" />
+		<div class="form-check form-switch">
+			<input class="form-check-input" type="checkbox" id="flexSwitchCheckDefault" @bind="showDeleted">
+			<label class="form-check-label" for="flexSwitchCheckDefault">Show Deleted Items</label>
+			<br/>
+		</div>
+		<button class="btn btn-primary" @onclick="Query">Query</button>
+		<button class="btn btn-success" @onclick="OpenAddEntryModal">Add Entry</button>
+	</div>
+
+	@if (datastoreDataList != null)
+	{
+		<br />
+		<br />
+		<h5>Results</h5>
+		<hr width="50px" />
+		<table class="table">
+			<thead>
+				<tr>
+					<th scope="col">Key</th>
+					<th scope="col">Value</th>
+					<th scope="col">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				@foreach (var data in datastoreDataList.datastoreData)
+				{
+					<tr>
+						<td>@data.etag</td>
+						<td>@data.value</td>
+						<td>
+							<button @onclick="() => OpenEditModal(data)" class="btn btn-primary">Edit</button>
+							<button @onclick="() => OpenDeleteModal(data)" class="btn btn-danger">Delete</button>
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+
+		@if (showEditModal)
+		{
+			<div class="modal fade show" style="display: block; background-color: rgba(0,0,0,0.5);" aria-modal="true" role="dialog">
+				<div class="modal-dialog">
+					<div class="modal-content">
+						<div class="modal-header">
+							<h5 class="modal-title">Edit Datastore Entry</h5>
+							<button type="button" class="btn-close" @onclick="CloseEditModal"></button>
+						</div>
+						<div class="modal-body">
+							<label for="editKey">Key:</label>
+							<input type="text" class="form-control block mb-2" id="editKey" @bind="currentEditData.etag" disabled>
+							<label for="editValue">Value:</label>
+							<textarea class="form-control mb-2" id="editValue" @bind="currentEditData.value"></textarea>
+						</div>
+						<div class="modal-footer">
+							<button type="button" class="btn btn-secondary" @onclick="CloseEditModal">Close</button>
+							<button type="button" class="btn btn-primary" @onclick="SaveChanges">Save changes</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		}
+
+		@if (showDeleteModal)
+		{
+			<div class="modal fade show" style="display: block; background-color: rgba(0,0,0,0.5);" aria-modal="true" role="dialog">
+				<div class="modal-dialog">
+					<div class="modal-content">
+						<div class="modal-header">
+							<h5 class="modal-title">Confirm Deletion</h5>
+							<button type="button" class="btn-close" @onclick="CloseDeleteModal"></button>
+						</div>
+						<div class="modal-body">
+							<p>Are you sure you want to delete the entry with key: <strong>@currentDeleteData.etag</strong>?</p>
+						</div>
+						<div class="modal-footer">
+							<button type="button" class="btn btn-secondary" @onclick="CloseDeleteModal">Cancel</button>
+							<button type="button" class="btn btn-danger" @onclick="ConfirmDelete">Delete</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		}
+	}
+
+	@if (showAddEntryModal)
+	{
+		<div class="modal fade show" style="display: block; background-color: rgba(0,0,0,0.5);" aria-modal="true" role="dialog">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title">Add New Datastore Entry</h5>
+						<button type="button" class="btn-close" @onclick="CloseAddEntryModal"></button>
+					</div>
+					<div class="modal-body">
+						<label for="newKey">Key:</label>
+						<input type="text" class="form-control mb-2" id="newKey" @bind="newEntryData.etag">
+						<label for="newValue">Value:</label>
+						<textarea class="form-control mb-2" id="newValue" @bind="newEntryData.value"></textarea>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" @onclick="CloseAddEntryModal">Close</button>
+						<button type="button" class="btn btn-primary" @onclick="SaveNewEntry">Add Entry</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+@code {
+	private string? datastoreId;
+	private string? universeId;
+	private string? userId;
+	private string? apiKey;
+	private bool showDeleted;
+	private DatastoreDataList? datastoreDataList;
+
+	// Query Fields
+	private string? searchValue;
+	private int amount = 10;
+	private string? pageToken;
+	private string? filter;
+
+	// Modal States
+	private bool showEditModal = false;
+	private DatastoreEntryFields currentEditData = new DatastoreEntryFields();
+
+	private bool showDeleteModal = false;
+	private DatastoreResponseData currentDeleteData = new DatastoreResponseData();
+
+	private bool showAddEntryModal = false;
+	private DatastoreEntryFields newEntryData = new DatastoreEntryFields();
+
+	protected override async Task OnInitializedAsync()
+	{
+		// Fetch the saved values
+		userId = await SecureStorage.GetAsync("userId");
+		universeId = await SecureStorage.GetAsync("universeId");
+		apiKey = await SecureStorage.GetAsync("apikey");
+		datastoreId = await SecureStorage.GetAsync("datastoreId");
+	}
+
+	// Edit Modal Methods
+	private void OpenEditModal(DatastoreResponseData data)
+	{
+		currentEditData = new DatastoreEntryFields
+			{
+				etag = data.etag,
+				value = data.value.ToString()
+			};
+		showEditModal = true;
+	}
+
+	private void CloseEditModal()
+	{
+		showEditModal = false;
+	}
+
+	private async void SaveChanges()
+	{
+		using (var client = new HttpClient())
+		{
+			var url = $"https://apis.roblox.com/cloud/v2/universes/{universeId}/data-stores/{datastoreId}/entries/{currentEditData.etag}?allowMissing=true";
+			client.DefaultRequestHeaders.Add("x-api-key", apiKey);
+			var payload = new DatastoreEntryPayload() { value = currentEditData.value };
+			var response = await client.PatchAsJsonAsync<DatastoreEntryPayload>(url, payload);
+
+			if (response.IsSuccessStatusCode)
+			{
+				// Alert for success
+				Console.WriteLine("Success");
+			}
+			else
+			{
+				// Alert for Failure
+				Console.WriteLine("Fail");
+			}
+		}
+		CloseEditModal();
+		await Query();
+	}
+
+
+	// Delete Modal Methods
+	private void OpenDeleteModal(DatastoreResponseData data)
+	{
+		currentDeleteData = new DatastoreResponseData
+			{
+				etag = data.etag,
+				value = data.value
+			};
+		showDeleteModal = true;
+	}
+
+	private void CloseDeleteModal()
+	{
+		showDeleteModal = false;
+	}
+
+	private async Task ConfirmDelete()
+	{
+		using (var client = new HttpClient())
+		{
+			var url = $"https://apis.roblox.com/cloud/v2/universes/{universeId}/data-stores/{datastoreId}/entries/{currentDeleteData.etag}";
+			client.DefaultRequestHeaders.Add("x-api-key", apiKey);
+			var response = await client.DeleteAsync(url);
+
+			if (!response.IsSuccessStatusCode)
+			{
+				// show alert
+				Console.WriteLine("Could not delete this row");
+			}
+		}
+
+		CloseDeleteModal();
+		await Query();
+	}
+
+	// Add Entry Modal Methods
+	private void OpenAddEntryModal()
+	{
+		newEntryData = new DatastoreEntryFields();
+		showAddEntryModal = true;
+	}
+
+	private void CloseAddEntryModal()
+	{
+		showAddEntryModal = false;
+	}
+
+	private async Task SaveNewEntry()
+	{
+		using (var client = new HttpClient())
+		{
+			var url = $"https://apis.roblox.com/cloud/v2/universes/{universeId}/data-stores/{datastoreId}/entries?id={newEntryData.etag}";
+			client.DefaultRequestHeaders.Add("x-api-key", apiKey);
+			var payload = new DatastoreEntryPayload() { value = newEntryData.value };
+			var response = await client.PostAsJsonAsync<DatastoreEntryPayload>(url, payload);
+
+			// Todo: Add alert to notify response status
+			if (response.IsSuccessStatusCode)
+			{
+				var datastoreEntryResponse = await response.Content.ReadFromJsonAsync<DatastoreEntry>();
+			}
+			else
+			{
+				Console.WriteLine("Could not delete row");
+			}
+		}
+		
+		CloseAddEntryModal();
+		await Query();
+	}
+
+	public async Task Query()
+	{
+		using (var client = new HttpClient())
+		{
+			var url = $"https://apis.roblox.com/cloud/v2/universes/{universeId}/data-stores/{datastoreId}/entries?maxPageSize={amount}&pageToken={pageToken}&filter={filter}&showDeleted={showDeleted}";
+			client.DefaultRequestHeaders.Add("x-api-key", apiKey);
+			var response = await client.GetFromJsonAsync<DataStoreResponseEntry>(url);
+
+			if (response?.dataStoreEntries.Count > 0)
+			{
+				datastoreDataList = new DatastoreDataList { datastoreData = new List<DatastoreResponseData>() };
+
+				foreach (var entry in response.dataStoreEntries)
+				{
+					url = $"https://apis.roblox.com/cloud/v2/{entry.path}";
+					var entryResponse = await client.GetFromJsonAsync<DatastoreResponseData>(url);
+
+					if (entryResponse != null)
+					{
+						datastoreDataList.datastoreData.Add(new DatastoreResponseData
+                        {
+							etag = entry.id,
+							value = entryResponse.value
+                        });
+					}
+				}
+			}
+		}
+	}
+}

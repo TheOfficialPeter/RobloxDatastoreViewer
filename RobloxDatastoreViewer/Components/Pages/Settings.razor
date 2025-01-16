@@ -1,0 +1,264 @@
+﻿@page "/settings"
+
+<h3 class="mb-2">Settings</h3>
+<hr/>
+
+<h5>Connect Roblox Datastore</h5>
+<hr width="50px" />
+
+@if (!string.IsNullOrEmpty(savedDatastoreName))
+{
+	<h1 class="datastoreName">@savedDatastoreName</h1><button class="btn btn-danger" @onclick="disconnect">Disconnect</button>
+}
+else 
+{
+	<div id="usernameSearch">
+		<div class="inputGroup">
+			<input type="text" class="mb-2 form-control" placeholder="Enter your Roblox Username" @bind="username" />
+
+			@if (usernameStatus == "loading")
+			{
+				<div class="spinner-border text-secondary" role="status"></div>
+			}
+			else if (usernameStatus == "error")
+			{
+				<i class="bi bi-x-lg text-danger"></i>
+			}
+			else if (usernameStatus == "success")
+			{
+				<i class="bi bi-check-lg text-success"></i>
+			}
+		</div>
+
+		@if (places?.Count > 0)
+		{
+			<div class="inputGroupSelect">
+				<select @bind="universeId" class="form-select" aria-label="Place Selector">
+					<option selected disabled>Please pick a place</option>
+					@foreach (var place in places ?? [])
+					{
+						<option value="@place.id">@place.name - @place.rootPlace.id</option>
+					}
+				</select>
+
+				<i class="bi bi-exclamation-triangle" data-bs-toggle="tooltip" data-bs-placement="left" title="The list only contains public Places"></i>
+			</div>
+
+			<div class="inputGroup">
+				<input type="text" class="mb-2 form-control" placeholder="Enter your Cloud API Key" @bind="apiKey" />
+
+				<button class="btn btn-primary clipboard-btn" @onclick="FetchFromClipboard"><i class="bi bi-clipboard"></i></button>
+
+				@if (apiKeyStatus == "loading")
+				{
+					<div class="spinner-border text-secondary" role="status"></div>
+				}
+				else if (apiKeyStatus == "error")
+				{
+					<i class="bi bi-x-lg text-danger"></i>
+				}
+				else if (apiKeyStatus == "success")
+				{
+					<i class="bi bi-check-lg text-success"></i>
+				}
+			</div>
+		}
+
+		@if (datastores?.Count > 0)
+		{
+			<div class="inputGroupSelect">
+				<select class="form-select" aria-label="Datastore Selector" @onchange="SaveDatastoreName">
+					<option selected disabled>Please pick a Datastore to use</option>
+					@foreach (var datastore in datastores ?? [])
+					{
+						<option value="@datastore.id">@datastore.path</option>
+					}
+				</select>
+			</div>
+		}
+
+		<button class="btn btn-primary" @onclick="buttonAction">@buttonText</button>
+	</div>
+}
+
+@code {
+	private string? usernameStatus = "nothing";
+	private string? apiKeyStatus = "nothing";
+	private string? username;
+	private string buttonText = "Find User";
+	private string? universeId;
+	private string? userId;
+	private string? datastoreId;
+	private string? apiKey;
+	private List<GameData>? places;
+	private List<Datastore>? datastores;
+	private string? savedDatastoreName;
+	private string? datastoreName;
+
+	// Field States
+	private bool usernameDisabled = false;
+	private bool placeDisabled = false;
+	private bool apiKeyDisabled = false;
+	private bool datastoreDisabled = false;
+
+	protected override async Task OnInitializedAsync()
+	{
+		userId = await SecureStorage.GetAsync("userId");
+		universeId = await SecureStorage.GetAsync("universeId");
+		apiKey = await SecureStorage.GetAsync("apikey");
+		datastoreId = await SecureStorage.GetAsync("datastoreId");
+		savedDatastoreName = await SecureStorage.GetAsync("datastoreName");
+	}
+
+	private void SaveDatastoreName(ChangeEventArgs e)
+	{
+		if (datastores != null && e.Value != null)
+		{
+			datastoreId = e.Value.ToString();
+			datastoreName = datastores.Find(x => x.id == e.Value.ToString())?.path;
+		}
+	}
+
+	private void disconnect()
+	{
+		datastoreName = "";
+		savedDatastoreName = "";
+		SecureStorage.RemoveAll();
+	}
+
+	private void disableFields()
+	{
+		usernameDisabled = true;
+		placeDisabled = true;
+		apiKeyDisabled = true;
+		datastoreDisabled = true;
+	}
+
+	private void enableFields()
+	{
+		usernameDisabled = false;
+		placeDisabled = false;
+		apiKeyDisabled = false;
+		datastoreDisabled = false;
+	}
+
+	private async Task FetchFromClipboard()
+	{
+		if (Clipboard.Default.HasText)
+		{
+			apiKey = await Clipboard.Default.GetTextAsync();
+			await Clipboard.Default.SetTextAsync(null);
+		}
+		return;
+	}
+
+	private async Task FetchDatastores()
+	{
+		if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(universeId))
+		{
+			using (var client = new HttpClient())
+			{
+				var url = $"https://apis.roblox.com/cloud/v2/universes/{universeId}/data-stores?maxPageSize=10";
+				client.DefaultRequestHeaders.Add("x-api-key", apiKey);
+				var response = new DatastoreResponse { };
+
+				try
+				{
+					response = await client.GetFromJsonAsync<DatastoreResponse>(url);
+				}
+				catch
+				{
+					apiKeyStatus = "error";
+					return;
+				}
+
+				if (response?.dataStores?.Count > 0)
+				{
+					apiKeyStatus = "success";
+					datastores = response.dataStores;
+					buttonText = "Connect Datastore";
+				}
+				else
+				{
+					apiKeyStatus = "error";
+				}
+			}
+		}
+	}
+
+	private async Task FetchPlaces()
+	{
+		if (!string.IsNullOrEmpty(userId))
+		{
+			using (var client = new HttpClient())
+			{
+				var url = $"https://games.roblox.com/v2/users/{userId}/games";
+				var response = await client.GetFromJsonAsync<GameRoot>(url);
+
+				if (response?.data.Count > 0)
+				{
+					places = response.data;
+					buttonText = "Find Datastores";
+				}
+			}
+		}
+	}
+
+	private async Task buttonAction()
+	{
+		switch(buttonText)
+		{
+			case "Find User":
+				if (!string.IsNullOrEmpty(username))
+				{
+					usernameStatus = "loading";
+
+					using (var client = new HttpClient())
+					{
+						const string url = "https://users.roblox.com/v1/usernames/users";
+						var content = new UserRequest { usernames = [username], excludeBannedUsers = true };
+						var response = await client.PostAsJsonAsync<UserRequest>(url, content);
+
+						if (response.IsSuccessStatusCode)
+						{
+							var user = await response.Content.ReadFromJsonAsync<UserResponse>();
+
+							if (user?.data.Count > 0)
+							{
+								usernameStatus = "success";
+								buttonText = "Find Place";
+								userId = user.data[0].id.ToString();
+								await FetchPlaces();
+							}
+							else
+							{
+								usernameStatus = "error";
+							}
+						}
+						else
+						{
+							usernameStatus = "error";
+						}
+					}
+				}
+				break;
+			case "Find Datastores":
+				if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(universeId))
+				{
+					apiKeyStatus = "loading";
+					await FetchDatastores();
+				}
+				break;
+			case "Connect Datastore":
+				await SecureStorage.SetAsync("userId", userId ?? "");
+				await SecureStorage.SetAsync("universeId", universeId ?? "");
+				await SecureStorage.SetAsync("apikey", apiKey ?? "");
+				await SecureStorage.SetAsync("datastoreId", datastoreId ?? "");
+				await SecureStorage.SetAsync("datastoreName", datastoreName ?? "");
+
+				savedDatastoreName = datastoreName;
+				disableFields();
+				break;
+		}
+	}
+}

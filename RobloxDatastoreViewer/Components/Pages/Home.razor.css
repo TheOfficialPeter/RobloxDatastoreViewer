@@ -1,0 +1,14 @@
+.modal-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group {
+    margin-bottom: 10px;
+}
+
+.form-control {
+    width: auto;
+    min-width: 0;
+    flex-grow: 1;
+}

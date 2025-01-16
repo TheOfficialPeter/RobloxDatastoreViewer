@@ -1,0 +1,58 @@
+﻿input {
+    width: auto;
+    min-width: 300px;
+    display: inline-block;
+    height: 38px;
+    margin-right: 20px;
+}
+
+.datastoreName {
+    width: auto;
+    height: 38px;
+    font-size: 22px;
+    margin-right: 20px;
+}
+
+.bi {
+    font-size: 25px;
+}
+
+.bi-clipboard {
+    font-size: 15px;
+}
+
+.clipboard-btn {
+    margin-right: 15px;
+}
+
+.badge {
+    background-color: rgba(25, 135, 84, .2);
+    height: 38px;
+    padding: 10px 10px;
+    border: 1.5px solid rgb(25, 135, 84);
+    font-size: 15px;
+    font-weight: 200;
+    border-radius: 5px;
+}
+
+select {
+    width: auto;
+    display: inline-block;
+    height: 38px;
+    margin-right: 10px;
+}
+
+.inputGroupSelect {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.bi-check2 {
+    color: forestgreen;
+}
+
+.inputGroup {
+    display: flex;
+    align-items: flex-start;
+}
