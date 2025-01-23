@@ -2,6 +2,8 @@
 
 A cross-platform desktop application built with .NET MAUI and Blazor that allows you to view and manage Roblox datastores through their API.
 
+> Images will be included once the UI overhaul is complete.
+
 ## Features
 
 - 🔍 Search and view datastore entries
@@ -62,4 +64,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Uses [Blazor](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor)
 - Styled with [Bootstrap](https://getbootstrap.com/)
 
-PS: this readme was generated using AI. I was too lazy -_- let me know if I made any mistakes
+## Next Steps
+
+I am planning on doing a UI overhaul on the whole interface to make it more approachable and also more mobile friendly. 
