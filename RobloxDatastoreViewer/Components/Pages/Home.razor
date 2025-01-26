@@ -167,8 +167,8 @@ else
 	{
 		currentEditData = new DatastoreEntryFields
 			{
-				etag = data.etag,
-				value = data.value.ToString()
+				etag = data.etag ?? "",
+				value = data.value?.ToString() ?? ""
 			};
 		showEditModal = true;
 	}
@@ -180,26 +180,24 @@ else
 
 	private async void SaveChanges()
 	{
-		using (var client = new HttpClient())
+		try
 		{
-			var url = $"https://apis.roblox.com/cloud/v2/universes/{universeId}/data-stores/{datastoreId}/entries/{currentEditData.etag}?allowMissing=true";
-			client.DefaultRequestHeaders.Add("x-api-key", apiKey);
-			var payload = new DatastoreEntryPayload() { value = currentEditData.value };
-			var response = await client.PatchAsJsonAsync<DatastoreEntryPayload>(url, payload);
+			using (var client = new HttpClient())
+			{
+				var url = $"https://apis.roblox.com/cloud/v2/universes/{universeId}/data-stores/{datastoreId}/entries/{currentEditData.etag}?allowMissing=true";
+				client.DefaultRequestHeaders.Add("x-api-key", apiKey);
+				var payload = new DatastoreEntryPayload() { value = currentEditData.value };
+				var response = await client.PatchAsJsonAsync<DatastoreEntryPayload>(url, payload);
 
-			if (response.IsSuccessStatusCode)
-			{
-				// Alert for success
-				Console.WriteLine("Success");
+				Console.WriteLine(response.IsSuccessStatusCode ? "Success" : "Fail");
 			}
-			else
-			{
-				// Alert for Failure
-				Console.WriteLine("Fail");
-			}
+			CloseEditModal();
+			await Query();
 		}
-		CloseEditModal();
-		await Query();
+		catch (Exception e)
+		{
+			throw; // TODO handle exception
+		}
 	}
 
 
@@ -262,7 +260,8 @@ else
 			// Todo: Add alert to notify response status
 			if (response.IsSuccessStatusCode)
 			{
-				var datastoreEntryResponse = await response.Content.ReadFromJsonAsync<DatastoreEntry>();
+				Console.WriteLine("Created new row");
+
 			}
 			else
 			{
@@ -274,7 +273,7 @@ else
 		await Query();
 	}
 
-	public async Task Query()
+	private async Task Query()
 	{
 		using (var client = new HttpClient())
 		{
@@ -284,7 +283,7 @@ else
 
 			if (response?.dataStoreEntries.Count > 0)
 			{
-				datastoreDataList = new DatastoreDataList { datastoreData = new List<DatastoreResponseData>() };
+				datastoreDataList = new DatastoreDataList { datastoreData = [] };
 
 				foreach (var entry in response.dataStoreEntries)
 				{
